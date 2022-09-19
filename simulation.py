@@ -46,10 +46,11 @@ params__ = {
     'states': np.array([-1,0,1]), # {I, U, A} = {-1, 0, 1}
 
     'nndist' : nn_dist__,
-    
+
     'r0' : nn_dist__,
     'density' : 0.3,
     'kconf': 10,
+    'stride': 1,
 }
 
 
@@ -129,25 +130,38 @@ class RandomWalker(Simulation_Setup):
         move = self.mover(self.RNG.uniform(0,1), mask)
         self.traj[n] = target + move
 
-def simul_annealing_temperature_generator(templow, temphigh, tlow, thigh):
-    cnt = 0
-    status = 'low'
-    while True:
-        cnt += 1
-        if status == 'low':
-            if cnt > tlow:
-                cnt = 0
-                status = 'high'
-            yield templow
-        else:
-            if cnt > thigh:
-                cnt = 0
-                status = 'low'
-            yield temphigh
+class Temperature():
+    """
+    temperature class for Monté Carlo simulation.
+    """
+    def __init__(self, method='simulated_annealing', **kwargs):
+        self.kwargs = kwargs
+        self.method = method
 
-def constant_temp_generator(temp):
-    while True:
-        yield temp
+    def __call__(self):
+        fun = getattr(self, self.method)
+        return fun()
+
+    def simulated_annealing(self):
+        templow, temphigh, tlow, thigh = self.kwargs['templow'], self.kwargs['temphigh'], self.kwargs['tlow'], self.kwargs['thigh']
+        cnt = 0
+        status = 'low'
+        while True:
+            cnt += 1
+            if status == 'low':
+                if cnt > tlow:
+                    cnt = 0
+                    status = 'high'
+                yield templow
+            else:
+                if cnt > thigh:
+                    cnt = 0
+                    status = 'low'
+                yield temphigh
+
+    def isothermal(self):
+        while True:
+            yield temp
 
 def ChrMover_MC_generator(hamiltonian, randomwalker, temperature):
     while True:
@@ -330,7 +344,7 @@ class LiveChromatin(Simulation_Setup):
                                        bonding_profile=self.Gillespie.bond_traj[-1],
                                        kcis=self.params__['cisbond'], ktrans=self.params__['transbond'], r0=self.params__['r0'],
                                        kbend=self.params__['bending'],
-                                       density=self.params__['density'], kconf=self.params__['kconf'])
+                                       density=self.params__['density'], kconf=self.params__['kconf'], stride=self.params__['stride'])
         self.liv_energy_traj.append(self.hamiltonian.value())
 
     def step(self, epi_tmax, mc_steps, bond_criteria = None, callback = None, callbackargs = None, save_traj=True):
@@ -341,8 +355,9 @@ class LiveChromatin(Simulation_Setup):
                                        bonding_profile=self.Gillespie.bond_traj[-1],
                                        kcis=self.params__['cisbond'], ktrans=self.params__['transbond'], r0=self.params__['r0'],
                                        kbend=self.params__['bending'],
-                                       density=self.params__['density'], kconf=self.params__['kconf'])
-        MontéCarlo = ChrMover_MC_generator(self.hamiltonian, self.randomwalker, self.temperature)
+                                       density=self.params__['density'], kconf=self.params__['kconf'], stride=self.params__['stride'])
+        temperature = self.temperature()
+        MontéCarlo = ChrMover_MC_generator(self.hamiltonian, self.randomwalker, temperature)
         self.liv_energy_traj.append(self.hamiltonian.value())
 
         if save_traj:
@@ -380,43 +395,32 @@ class LiveChromatin(Simulation_Setup):
         return (bond_reaction_matrix, bond_propensity,
                 new_state_reaction_matrix, new_state_propensity)
 
-    def save(self, path):
-        parameters = {'n': self.n, 'init_bond': self.init_bond, 'init_state': self.init_state, #'temperature': self.temperature,
-                      'criterion': self.criterion, 'reaction_matrix_controller': self.reaction_matrix_controller,
-                      'randomwalker': self.randomwalker, 'params': self.params__}
-
+    def save(self, path, only_data=False):
         if not os.path.isdir(path):
             os.mkdir(path)
-        if not os.path.isdir(path+'/data'):
-            os.mkdir(path+'/data')
+        with open(path+'/simulator.bin', 'wb') as f:
+            dump(self, f)
 
-        with open(path + '/data/parameters.bin', 'wb') as f:
-            dump(parameters, f)
+        if only_data:
+            if not os.path.isdir(path+'/data'):
+                os.mkdir(path+'/data')
+            np.save(path+'/data/state_trajectory', self.liv_state_traj, allow_pickle=True)
+            np.save(path+'/data/structure_trajectory', self.liv_structure_traj, allow_pickle=True)
+            np.save(path+'/data/bond_trajectory', self.liv_bond_traj, allow_pickle=True)
+            np.save(path+'/data/energy_trajectory', self.liv_energy_traj, allow_pickle=True)
 
-        np.save(path+'/data/state_trajectory', self.liv_state_traj, allow_pickle=True)
-        np.save(path+'/data/structure_trajectory', self.liv_structure_traj, allow_pickle=True)
-        np.save(path+'/data/bond_trajectory', self.liv_bond_traj, allow_pickle=True)
-        np.save(path+'/data/energy_trajectory', self.liv_energy_traj, allow_pickle=True)
-
-    @staticmethod
-    def load(path, temperature):
+    def load(self, path):
         datapath = path + '/data/'
-        with open(datapath+'parameters.bin', 'rb') as f:
-            parameters = load(f)
         state_traj = np.load(datapath+'state_trajectory.npy', allow_pickle=True)
         structure_traj = np.load(datapath+'structure_trajectory.npy', allow_pickle=True)
         bond_traj = np.load(datapath+'bond_trajectory.npy', allow_pickle=True)
         energy_traj = np.load(datapath+'energy_trajectory.npy', allow_pickle=True)
 
-        self = LiveChromatin(parameters['n'], parameters['init_bond'], parameters['init_state'], temperature=temperature, #parameters['temperature'],
-                             randomwalker=parameters['randomwalker'], params=parameters['params'], criterion=parameters['criterion'],
-                             reaction_matrix_controller=parameters['reaction_matrix_controller'])
         self.liv_state_traj = list(state_traj)
         self.liv_structure_traj = list(structure_traj)
         self.liv_bond_traj = list(bond_traj)
         self.liv_energy_traj = list(energy_traj)
 
-        return self
 
 class ReactionMatrixController():
     """

@@ -2,7 +2,7 @@ import numpy as np
 from scipy.interpolate import interp1d
 
 rmsd = lambda x, ref: la.norm(x - ref)
-Rg = lambda msd: np.sqrt(1 / (2*msd.shape[0]) * msd.sum())
+Rg = lambda x: np.sqrt((1/(2 * len(x)**2)) * kappa(x@x.T).sum())
 
 def mv_avg(x,w):
     x = x[:,None]

@@ -35,7 +35,7 @@ class Hamiltonian():
 
         self.keywords['harmonic_bond'] = ['bonding_profile', 'kcis', 'ktrans', 'r0']
         self.keywords['cosine_angle'] = ['bonding_profile', 'kbend']
-        self.keywords['spherical_confinement'] = ['density', 'kconf']
+        self.keywords['spherical_confinement'] = ['density', 'kconf', 'stride']
 
     def harmonic_bond(self):
         bondmap = self.kwargs['bonding_profile'].toarray() * self.kwargs['ktrans']
@@ -59,9 +59,9 @@ class Hamiltonian():
         return H
 
     def spherical_confinement(self):
-        R = (3 * self.n / (4 * 3.141592 * self.kwargs['density'])) ** (1 / 3.0)
+        R = self.kwargs['stride'] * (3 * self.n / (4 * 3.141592 * self.kwargs['density'])) ** (1 / 3.0)
         r_ = self.structure - self.structure.mean(0)
-        r = (np.square(r_).sum(1) + (1e-2)**2)
+        r = (np.square(r_).sum(1) + (1e-2)**2)** 0.5
         H = np.zeros_like(r)
         H = self.kwargs['kconf'] * r - 1
         H[r <= (R - 1/self.kwargs['kconf'])] = 0.0
