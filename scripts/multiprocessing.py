@@ -14,7 +14,7 @@ global __scratchpath # path, str type
 global __resultpath # path, str type
 
 ### MULTIPROCESSING ###
-def pool_initializer(**kwargs):
+def pool_initializer(kwargs):
     for key, value in kwargs.items():
         global()['__' + key] = value
 
@@ -40,13 +40,18 @@ def run_single_simulator_from_index(subset_index):
             dmaps_init[i] = lu.pdistmap(livchromatin.liv_structure_traj[0])
             livchromatin.save(__scratchpath + f'{i})
             livchromatins_in_pool.append(livchromatin)
-<<<<<<< HEAD
+
+    for livchromatin in livchromatins_in_pool:
+        livchromatin.run(2000, 10, 10, bond_criteria = __bond_criteria, callback = __callback,
+                        callbackargs = __callbackargs, save_traj = False)
+        livchromatin.save(__scratchpath + f'{i})
+
+    return subset_index, livchromatins_in_pool
 
 if __name__ == '__main__':
     ### PARAMETERS ###
     n = 80
     init_state = np.zeros(n)
-    #init_state[np.arange(38,42,1, dtype=int)] = 1
     init_bond = dok_matrix(np.zeros((n,n)))
     init_bond.setdiag(1,1)
     nn_dist = ls.Simulation_Setup().nn_dist__
@@ -65,6 +70,7 @@ if __name__ == '__main__':
     param['cisbond'] = 1.5
     param['transbond'] = 1.5
     param['bending'] = 1
+    param['exclusive_volume'] = nn_dist
     param['stride'] = stride
     param['r0'] = param['stride'] * nn_dist
     param['states'] = np.array([-1,0,1])
@@ -81,6 +87,7 @@ if __name__ == '__main__':
 
     callback = None
     temperature = ls.Temperature(templow=1,temphigh=90,tlow=8,thigh=2)
+    param['temperature'] = temperature
 
     reaction_matrix_controller = ls.ReactionMatrixController(bond_function_name='general_bond',
                                                             bond_creation_rate_matrix=bond_creation_rate_matrix,
@@ -89,19 +96,25 @@ if __name__ == '__main__':
     if not os.path.isdir(__scratchpath):
         os.mkdir(__scratchpath)
 
-    livchromatins_of_dmap = []
-    pool = ProcessPoolExecutor(n_cpus, initializer=pool_initializer, initargs=(livchromatins_of_dmap, __scratchpath, 3 * nn_dist,
-                                                                            callback, {'index':int(n/2),'state':1}))
+    livchromatins_of_dmap = np.empty(numcells)
     p_list = []
-    subset_index_list = [np.arange(len(livchromatins_of_dmap))[i::n_cpus] for i in range(n_cpus)]
+    subset_index_list = [np.arange(numcells)[i::n_cpus] for i in range(n_cpus)]
+
+    pool = ProcessPoolExecutor(n_cpus, initializer=pool_initializer,
+     initargs=({'from_scratch' = __from_scratch, 'scratchpath' = __scratchpath, 'resultpath' = __resultpath,
+                'param' = param, 'callback' = callback, 'callbackargs' = {'index':int(n/2),'state':1},
+                'bond_criteria' = 3 * nn_dist}))
 
     for subset_index in subset_index_list:
         p_list.append(pool.submit(run_single_thread, subset_index))
 
     for p in as_completed(p_list):
-        status = p.result()
-        print(status)
+        subset_index, livchromatins_in_pool = p.result()
+        print(subset_index)
+        livchromatins_of_dmap[subset_index] = livchromatins_in_pool
+
     pool.shutdown()
+    livchromatins_of_dmap = list(livchromatins_of_dmap)
 
     if not os.path.isdir(resultpath):
         os.mkdir(resultpath)
@@ -115,6 +128,4 @@ if __name__ == '__main__':
     np.save(resultpath+'dmaps_init', dmaps_init)
     np.save(resultpath+'dmaps_after', dmaps_after)
 
-    os.system(f'rm -rf {__scratchpath}*')
-=======
->>>>>>> c53b75fd50f0fc3737ef5c644c52436d4ca2ef5c
+    os.system(f'rm -rf {__scratchpath}*') # ------ posix
