@@ -40,6 +40,7 @@ def run_single_simulator_from_index(subset_index):
             dmaps_init[i] = lu.pdistmap(livchromatin.liv_structure_traj[0])
             livchromatin.save(__scratchpath + f'{i})
             livchromatins_in_pool.append(livchromatin)
+<<<<<<< HEAD
 
 if __name__ == '__main__':
     ### PARAMETERS ###
@@ -115,3 +116,5 @@ if __name__ == '__main__':
     np.save(resultpath+'dmaps_after', dmaps_after)
 
     os.system(f'rm -rf {__scratchpath}*')
+=======
+>>>>>>> c53b75fd50f0fc3737ef5c644c52436d4ca2ef5c
