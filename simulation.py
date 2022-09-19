@@ -449,7 +449,8 @@ class ReactionMatrixController():
                 function_name = self.state_function_name
 
         return getattr(self, function_name)
-
+        
+    @staticmethod
     def calc_state_transition_propensity(kwargs):
         return (kwargs['turnover'] +
                 kwargs['trans'] * kwargs['n_trans'] + kwargs['cis'] * kwargs['n_cis'])
