@@ -182,10 +182,6 @@ def ChrMover_MC_generator(hamiltonian, randomwalker, temperature):
             randomwalker.traj = x0
             yield x0
 
-def calc_state_transition_propensity(kwargs):
-    return (kwargs['turnover'] +
-            kwargs['trans'] * kwargs['n_trans'] + kwargs['cis'] * kwargs['n_cis'])
-
 class Gillespie(Simulation_Setup):
     """
     Gillespie algorithm simulator
@@ -247,6 +243,7 @@ class Gillespie(Simulation_Setup):
                                                                                                                                       bond_propensity = next_total_bond_propensity,
                                                                                                                                       state_reaction_matrix = next_state_reaction_matrix,
                                                                                                                                       state_propensity = next_state_propensity)
+
         state_profile = self.state_traj[-1].copy()
         bond_profile = self.bond_traj[-1].copy()
 
@@ -453,6 +450,10 @@ class ReactionMatrixController():
 
         return getattr(self, function_name)
 
+    def calc_state_transition_propensity(kwargs):
+        return (kwargs['turnover'] +
+                kwargs['trans'] * kwargs['n_trans'] + kwargs['cis'] * kwargs['n_cis'])
+
     def homotypic_universal_bond(self, structure, bond_profile, criterion, encoded_state, params):
         """
         homotypic and universal bond creation profile maker.
@@ -583,7 +584,7 @@ class ReactionMatrixController():
                 kwargs['cis'] = params['ec1']
                 kwargs['trans'] = params['et1']
 
-                next_state_propensity.append(calc_state_transition_propensity(kwargs))
+                next_state_propensity.append(self.calc_state_transition_propensity(kwargs))
                 reaction = np.zeros(state_profile.shape)
                 reaction[i] = 1
                 next_state_reaction_matrix.append(reaction)
@@ -596,7 +597,7 @@ class ReactionMatrixController():
                 kwargs['cis'] = params['ec1']
                 kwargs['trans'] = params['et1']
 
-                next_state_propensity.append(calc_state_transition_propensity(kwargs))
+                next_state_propensity.append(self.calc_state_transition_propensity(kwargs))
                 reaction = np.zeros(state_profile.shape)
                 reaction[i] = 1
                 next_state_reaction_matrix.append(reaction)
@@ -608,7 +609,7 @@ class ReactionMatrixController():
                 kwargs['cis'] = params['ec2']
                 kwargs['trans'] = params['et2']
 
-                next_state_propensity.append(calc_state_transition_propensity(kwargs))
+                next_state_propensity.append(self.calc_state_transition_propensity(kwargs))
                 reaction = np.zeros(state_profile.shape)
                 reaction[i] = -1
                 next_state_reaction_matrix.append(reaction)
@@ -621,7 +622,7 @@ class ReactionMatrixController():
                 kwargs['cis'] = params['ec2']
                 kwargs['trans'] = params['et2']
 
-                next_state_propensity.append(calc_state_transition_propensity(kwargs))
+                next_state_propensity.append(self.calc_state_transition_propensity(kwargs))
                 reaction = np.zeros(state_profile.shape)
                 reaction[i] = -1
                 next_state_reaction_matrix.append(reaction)
