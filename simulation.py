@@ -175,7 +175,7 @@ def ChrMover_MC_generator(hamiltonian, randomwalker, temperature):
         dE = hamiltonian.value() - E0
         if - dE / T > 0:
             yield randomwalker.traj.copy()
-        if np.random.uniform(0,1) < np.exp(-dE / T, dtype=np.float128):
+        if np.random.uniform(0,1) < np.exp(-dE / T, dtype=np.longdouble):
             yield randomwalker.traj.copy()
         else:
             hamiltonian.set_kwargs(x0)
@@ -449,7 +449,7 @@ class ReactionMatrixController():
                 function_name = self.state_function_name
 
         return getattr(self, function_name)
-        
+
     @staticmethod
     def calc_state_transition_propensity(kwargs):
         return (kwargs['turnover'] +
